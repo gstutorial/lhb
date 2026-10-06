@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>LHB Coil Spring Failure Analysis</title>
+<style>
+:root{--navy:#0a1f3f;--saffron:#ff9933;--green:#138808;--bg:#f4f7fb;--border:#d9e1ea}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:#172033}
+header{background:linear-gradient(135deg,#0a1f3f,#123c70);color:#fff;padding:22px 28px}
+.brand{font-size:23px;font-weight:700}.sub{opacity:.82;font-size:13px;margin-top:5px}
+.container{max-width:1400px;margin:auto;padding:22px}.grid{display:grid;grid-template-columns:360px 1fr;gap:20px}
+.card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:0 5px 18px #14233c0f}
+h2{font-size:17px;margin:0 0 14px}label{display:block;font-size:12px;font-weight:700;color:#475467;margin:10px 0 5px}
+input,textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:10px;background:#fff;font-size:14px}
+textarea{min-height:250px;font:11px monospace}.drop{border:2px dashed #9aa9bd;border-radius:12px;padding:25px 12px;text-align:center;background:#f8fafc;cursor:pointer}
+.drop.drag{border-color:var(--saffron);background:#fff8ef}.drop b{display:block;margin-bottom:7px}.drop small,.status,.help{color:#667085;font-size:12px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer}
+.primary{background:var(--navy);color:#fff}.orange{background:var(--saffron);color:#111}.green{background:var(--green);color:#fff}.light{background:#eef2f7;color:#233044}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}.kpi{padding:15px;border:1px solid var(--border);border-radius:11px;background:#fff}
+.kpi span{display:block;color:#667085;font-size:11px}.kpi strong{display:block;font-size:24px;margin-top:5px}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #aeb8c4;padding:7px 6px;text-align:center}th{background:#e7edf5}
+td.left{text-align:left}.section-title{background:#d9ead3;font-size:14px;font-weight:700;text-align:center;padding:8px;border:1px solid #aeb8c4;margin-top:15px}
+.total-row{background:#fff2cc;font-weight:700}.preview-title{text-align:center;font-size:19px;font-weight:700;margin:3px 0 16px}
+.empty{padding:45px;text-align:center;color:#7b8794}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}.container{padding:12px}}
+</style>
+</head>
+<body>
+<header><div class="brand">LHB Coil Spring Failure Analysis</div>
+<div class="sub">Upload monthly test PDF → automatic PASS/FAIL analysis → professional PDF report</div></header>
+<div class="container"><div class="grid">
+<aside>
+<div class="card">
+<h2>1. Upload Test PDF</h2>
+<div class="drop" id="drop"><b>📄 Drop PDF here</b><small>or click to select a file</small><input id="pdfFile" type="file" accept="application/pdf" hidden></div>
+<div id="fileInfo" class="status">No file selected.</div>
+<label>Report Month</label><input id="reportMonth" placeholder="APRIL 2026">
+<label>Report Title</label><input id="reportTitle" value="FAILURE ANALYSIS OF LHB COIL SPRING">
+<div class="actions"><button class="primary" id="analyzeBtn">Analyze PDF</button><button class="light" id="clearBtn">Clear</button></div>
+<div id="status" class="status"></div>
+</div>
+<div class="card">
+<h2>2. Spring Master Mapping</h2>
+<div class="help">Format: CODE | TYPE | DRG | COLOUR | F-CODE | COACH TYPE</div>
+<textarea id="mapping">1267411 | PRIMARY (OUTER) | 1276411 | GREEN | F 03 | I,II,III AC/PANTRY CAR
+1267412 | PRIMARY (INNER) | 1276412 | GREEN | F 02 | I,II,III AC/PANTRY CAR
+LGO1100 | PRIMARY (OUTER) | LGO1100 | BLACK | F 07 | LGS, LSCN, LSLR
+LGO1101 | PRIMARY (INNER) | LGO1101 | BLACK | F 06 | LGS, LSCN, LSLR
+1277142 | PRIMARY (OUTER) | 1277142 | YELLOW | F 05 | POWER CAR
+1277143 | PRIMARY (INNER) | 1277143 | YELLOW | F 04 | POWER CAR IIAC
+1277145 | SECONDARY (INNER) | 1277145 | BLUE | F 15 | POWER CAR SIDE - I
+1277146 | SECONDARY (OUTER) | 1277146 | BLUE | F 14 | POWER CAR SIDE - I
+1268837 | SECONDARY (INNER) | 1268837 | YELLOW | F 16 | IIAC POWER CAR SIDE - II
+1268836 | SECONDARY (OUTER) | 1268836 | YELLOW | F 17 | I POWER CAR SIDE - II
+1269513 | SECONDARY (INNER) | 1269513 | GREEN | F 19 | I,II,III AC/PANTRY CAR
+1269514 | SECONDARY (OUTER) | 1269514 | GREEN | F 18 | II,III AC/PANTRY CAR
+LGO5100 | SECONDARY (INNER) | LGO5100 | BLACK | F 08 | LGS, LSCN, LSLR
+LGO5101 | SECONDARY (OUTER) | LGO5101 | BLACK | F 09 | LGS, LSCN, LSLR</textarea>
+<div class="actions"><button class="light" id="saveMap">Save Mapping</button></div>
+</div>
+<div class="card"><h2>3. Report Options</h2>
+<label>Company / Department</label><input id="dept" value="LHB COIL SPRING TESTING">
+<label>Prepared By</label><input id="prepared">
+<label>Report Number</label><input id="reportNo">
+<div class="actions"><button class="green" id="downloadBtn">⬇ Download PDF Report</button><button class="orange" id="printBtn">🖨 Print Preview</button></div>
+</div>
+</aside>
+<main>
+<div class="kpis"><div class="kpi"><span>TOTAL TESTED</span><strong id="kTotal">0</strong></div><div class="kpi"><span>PASS</span><strong id="kPass">0</strong></div><div class="kpi"><span>FAIL</span><strong id="kFail">0</strong></div><div class="kpi"><span>REJECTION %</span><strong id="kReject">0.00%</strong></div></div>
+<div class="card"><div id="preview" class="empty">Upload a PDF and click <b>Analyze PDF</b>.</div></div>
+</main></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module" id="pdfLoader"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script type="module">
+import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs";
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
+const $=id=>document.getElementById(id);let selectedFile=null,records=[];
+$("reportMonth").value=new Intl.DateTimeFormat("en-US",{month:"long",year:"numeric"}).format(new Date()).toUpperCase();
+const saved=localStorage.getItem("lhbSpringMapping");if(saved)$("mapping").value=saved;
+
+$("drop").onclick=()=>$("pdfFile").click();
+$("pdfFile").onchange=e=>setFile(e.target.files[0]);
+$("drop").ondragover=e=>{e.preventDefault();$("drop").classList.add("drag")};
+$("drop").ondragleave=()=>$("drop").classList.remove("drag");
+$("drop").ondrop=e=>{e.preventDefault();$("drop").classList.remove("drag");setFile(e.dataTransfer.files[0])};
+function setFile(f){if(!f||f.type!=="application/pdf"){alert("Please select a PDF.");return}selectedFile=f;$("fileInfo").textContent=`Selected: ${f.name} (${(f.size/1048576).toFixed(2)} MB)`}
+
+function parseMapping(){let m={};$("mapping").value.split(/\r?\n/).forEach(l=>{let p=l.split("|").map(x=>x.trim());if(p.length>=6)m[p[0].toUpperCase()]={code:p[0],type:p[1],drg:p[2],colour:p[3],fcode:p[4],coach:p.slice(5).join(" | ")} });return m}
+$("saveMap").onclick=()=>{localStorage.setItem("lhbSpringMapping",$("mapping").value);$("status").textContent="Mapping saved."};
+
+function linesFromItems(items){
+ let a=items.map(x=>({t:(x.str||"").trim(),x:x.transform?.[4]||0,y:x.transform?.[5]||0})).filter(x=>x.t);
+ let g=[];for(let o of a){let z=g.find(v=>Math.abs(v.y-o.y)<=3);if(!z){z={y:o.y,a:[]};g.push(z)}z.a.push(o)}
+ g.sort((a,b)=>b.y-a.y);return g.map(z=>z.a.sort((a,b)=>a.x-b.x).map(q=>q.t).join(" ").replace(/\s+/g," ").trim()).filter(Boolean)
+}
+function nums(s){return(s.match(/-?\d+(?:\.\d+)?/g)||[]).map(Number)}
+async function analyze(file){
+ const map=parseMapping(),pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise,out=[],seen=new Set();
+ for(let p=1;p<=pdf.numPages;p++){
+  $("status").textContent=`Reading page ${p} of ${pdf.numPages}...`;
+  let c=await (await pdf.getPage(p)).getTextContent(),lines=linesFromItems(c.items);
+  for(let i=0;i<lines.length;i++){
+   if(!/^\d{5}$/.test(lines[i]))continue;
+   let code=null,idx=-1;
+   for(let j=i+1;j<Math.min(i+6,lines.length);j++){let q=lines[j].trim().toUpperCase();if(map[q]||/^[A-Z0-9]{5,10}$/.test(q)){code=q;idx=j;break}}
+   if(!code)continue;
+   let w=lines.slice(idx,Math.min(idx+8,lines.length)).join(" ");
+   let result=/\bFAIL\b/i.test(w)?"FAIL":(/\bPASS\b/i.test(w)?"PASS":null);
+   if(!result)continue;let key=lines[i]+"|"+code;if(seen.has(key))continue;seen.add(key);
+   out.push({sr:lines[i],code,result,nums:nums(w),page:p,raw:w});
+  }
+ }
+ return out;
+}
+function pct(n,d){return d?(n/d*100).toFixed(2)+"%":"0.00%"}
+function summarize(){
+ let map=parseMapping(),groups={};records.forEach(r=>{let k=r.code.toUpperCase(),m=map[k]||{code:r.code,type:"UNMAPPED",drg:"",colour:"",fcode:"",coach:""};if(!groups[k])groups[k]={...m,total:0,pass:0,fail:0};groups[k].total++;r.result==="PASS"?groups[k].pass++:groups[k].fail++});
+ let keys=Object.keys(groups),primary=keys.filter(k=>groups[k].type.startsWith("PRIMARY")),secondary=keys.filter(k=>groups[k].type.startsWith("SECONDARY")),other=keys.filter(k=>!primary.includes(k)&&!secondary.includes(k));
+ let total=records.length,pass=records.filter(r=>r.result==="PASS").length;return{groups,primary,secondary,other,total,pass,fail:total-pass}
+}
+function esc(s){return String(s??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]))}
+function render(){
+ let s=summarize();$("kTotal").textContent=s.total;$("kPass").textContent=s.pass;$("kFail").textContent=s.fail;$("kReject").textContent=pct(s.fail,s.total);
+ let h=`<div class="preview-title">${esc($("reportTitle").value)} FOR THE MONTH OF ${esc($("reportMonth").value)}</div>`;
+ function sec(title,keys){let T=0,P=0,F=0;h+=`<div class="section-title">${title}</div><table><thead><tr><th>TYPE OF SPRING</th><th>Drg. No.</th><th>COLOUR CODE</th><th>CODE</th><th>TYPE OF COACH</th><th>TOTAL</th><th>PASS</th><th>FAIL</th><th>REJECTION %</th></tr></thead><tbody>`;keys.forEach(k=>{let g=s.groups[k];T+=g.total;P+=g.pass;F+=g.fail;h+=`<tr><td class="left">${esc(g.type)}</td><td>${esc(g.drg)}</td><td>${esc(g.colour)}</td><td>${esc(g.fcode)}</td><td class="left">${esc(g.coach)}</td><td>${g.total}</td><td>${g.pass}</td><td>${g.fail}</td><td>${pct(g.fail,g.total)}</td></tr>`});h+=`<tr class="total-row"><td colspan="5">TOTAL =</td><td>${T}</td><td>${P}</td><td>${F}</td><td>${pct(F,T)}</td></tr></tbody></table>`}
+ if(s.primary.length)sec("PRIMARY SPRING",s.primary);if(s.secondary.length)sec("SECONDARY SPRING",s.secondary);if(s.other.length)sec("UNMAPPED / OTHER SPRING CODES",s.other);
+ h+=`<div style="margin-top:20px;max-width:420px"><table><tr><th class="left">TOTAL SPRING TESTED</th><td>${s.total}</td></tr><tr><th class="left">TOTAL SPRING PASS</th><td>${s.pass}</td></tr><tr><th class="left">TOTAL SPRING FAIL</th><td>${s.fail}</td></tr><tr class="total-row"><th class="left">TOTAL SPRING REJECTION %</th><td>${pct(s.fail,s.total)}</td></tr></table></div>`;
+ $("preview").innerHTML=h;
+}
+$("analyzeBtn").onclick=async()=>{if(!selectedFile)return alert("Please upload the monthly PDF.");try{$("analyzeBtn").disabled=true;records=await analyze(selectedFile);if(!records.length){$("status").textContent="No text-based PASS/FAIL records detected. Scanned PDFs require OCR.";$("preview").innerHTML='<div class="empty"><b>No machine-readable records found.</b><br>Scanned/image-only PDFs require an OCR backend.</div>'}else{$("status").textContent=`Analysis complete: ${records.length} records found.`;render()}}catch(e){console.error(e);alert("PDF processing failed: "+e.message)}finally{$("analyzeBtn").disabled=false}};
+$("clearBtn").onclick=()=>location.reload();
+
+function makePDF(){
+ const {jsPDF}=window.jspdf,s=summarize();if(!s.total){alert("Analyze a PDF first.");return}const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"}),W=297,H=210,line=[150,155,160],green=[217,234,211],yellow=[255,242,204];
+ const head=()=>{doc.setFillColor(10,31,63);doc.rect(0,0,W,18,"F");doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(13);doc.text("LHB COIL SPRING FAILURE ANALYSIS",W/2,8,{align:"center"});doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text($("dept").value||"",W/2,14,{align:"center"});doc.setTextColor(0,0,0)};
+ const section=(title,keys,y)=>{doc.setFillColor(...green);doc.setDrawColor(...line);doc.rect(10,y,W-20,7,"FD");doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(title,W/2,y+4.8,{align:"center"});y+=7;let cw=[34,27,20,17,55,16,16,16,22],lh=["TYPE OF SPRING","Drg. No.","COLOUR CODE","CODE","TYPE OF COACH","TOTAL","PASS","FAIL","REJECTION %"],x=10;doc.setFontSize(6.5);lh.forEach((q,i)=>{doc.setFillColor(231,237,245);doc.rect(x,y,cw[i],10,"FD");doc.text(q,x+cw[i]/2,y+6,{align:"center"});x+=cw[i]});y+=10;let T=0,P=0,F=0;keys.forEach(k=>{let g=s.groups[k];T+=g.total;P+=g.pass;F+=g.fail;let v=[g.type,g.drg,g.colour,g.fcode,g.coach,g.total,g.pass,g.fail,pct(g.fail,g.total)];x=10;doc.setFont("helvetica","normal");doc.setFontSize(6.1);v.forEach((q,i)=>{doc.rect(x,y,cw[i],9,"S");doc.text(String(q),x+cw[i]/2,y+5.8,{align:"center",maxWidth:cw[i]-2});x+=cw[i]});y+=9});x=10;doc.setFillColor(...yellow);doc.setFont("helvetica","bold");let v=["TOTAL =","","","","",T,P,F,pct(F,T)];v.forEach((q,i)=>{doc.rect(x,y,cw[i],9,"FD");doc.text(String(q),x+cw[i]/2,y+5.8,{align:"center"});x+=cw[i]});return y+12};
+ head();doc.setTextColor(90,100,115);doc.setFont("helvetica","bold");doc.setFontSize(14);doc.text(`${$("reportTitle").value} FOR THE MONTH OF ${$("reportMonth").value}`,W/2,27,{align:"center"});let y=35;
+ for(const [name,keys] of [["PRIMARY SPRING",s.primary],["SECONDARY SPRING",s.secondary],["UNMAPPED / OTHER SPRING CODES",s.other]]){if(!keys.length)continue;if(y>155){doc.addPage();head();y=25}y=section(name,keys,y)}
+ if(y>165){doc.addPage();head();y=25}doc.setTextColor(0,0,0);doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text("OVERALL SUMMARY",12,y);y+=5;[["TOTAL SPRING TESTED",s.total],["TOTAL SPRING PASS",s.pass],["TOTAL SPRING FAIL",s.fail],["TOTAL SPRING REJECTION %",pct(s.fail,s.total)]].forEach(([a,b])=>{doc.setFillColor(...yellow);doc.rect(15,y,75,8,"FD");doc.rect(90,y,30,8,"FD");doc.text(a,18,y+5.3);doc.text(String(b),105,y+5.3,{align:"center"});y+=8});doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(90,100,115);doc.text(`Source: ${selectedFile?.name||""}`,12,H-12);doc.text(`Prepared by: ${$("prepared").value||""}`,12,H-8);doc.text(`Report No.: ${$("reportNo").value||""}`,W-12,H-8,{align:"right"});return doc;
+}
+$("downloadBtn").onclick=()=>{try{let d=makePDF(),n=($("reportMonth").value||"REPORT").replace(/[^A-Z0-9]+/gi,"_");d.save(`LHB_COIL_SPRING_FAILURE_ANALYSIS_${n}.pdf`)}catch(e){alert(e.message)}};
+$("printBtn").onclick=()=>{try{let u=URL.createObjectURL(makePDF().output("blob"));window.open(u,"_blank")}catch(e){alert(e.message)}};
+</script>
+</body>
+</html>
