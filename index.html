@@ -72,7 +72,6 @@ label{display:block;font-size:12px;font-weight:700;color:#4d5d6b;margin-bottom:5
 </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
 <script>
 const DEFAULT_MAPPING = [
 ['1267411','PRIMARY (OUTER)','1276411','GREEN','F 03','I,II,III AC/PANTRY CAR'],
@@ -100,13 +99,51 @@ const drop=document.getElementById('drop'), fileInput=document.getElementById('p
 drop.onclick=()=>fileInput.click();
 ['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('drag')}));
 ['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('drag')}));
-drop.addEventListener('drop',ev=>{const f=ev.dataTransfer.files[0];if(f&&f.type==='application/pdf'){fileInput.files=ev.dataTransfer.files;fileName.textContent=f.name}});
-fileInput.onchange=()=>fileName.textContent=fileInput.files[0]?.name||'No PDF selected';
+drop.addEventListener('drop',ev=>{const f=ev.dataTransfer.files[0];if(f&&f.type==='application/pdf'){fileInput.files=ev.dataTransfer.files;fileName.textContent=f.name;setReportMonthFromPdf(f)}});
+async function setReportMonthFromPdf(file){
+ if(!file)return;
+ try{
+   setStatus('Reading PDF date range to detect report month…');
+   const {lines}=await extractLines(file);
+   const detected=detectMonth(lines.join('\n'));
+   if(detected){
+     document.getElementById('month').value=detected;
+     document.getElementById('title').value='FAILURE ANALYSIS OF LHB COIL SPRING FOR THE MONTH OF '+detected;
+     setStatus('Report month detected automatically from PDF: '+detected,'ok');
+   }else{
+     const fallback=(file.name||'').match(/(?:^|[_\- ])(JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)[_\- ]?(20\d{2})/i);
+     if(fallback){
+       const detected2=fallback[1].toUpperCase()+' '+fallback[2];
+       document.getElementById('month').value=detected2;
+       document.getElementById('title').value='FAILURE ANALYSIS OF LHB COIL SPRING FOR THE MONTH OF '+detected2;
+       setStatus('Report month detected from PDF filename: '+detected2,'ok');
+     }else setStatus('PDF selected. Report month could not be detected yet; click Analyze PDF.');
+   }
+ }catch(e){
+   console.warn('Month detection failed:',e);
+   setStatus('PDF selected. Click Analyze PDF to continue.');
+ }
+}
+fileInput.onchange=()=>{const f=fileInput.files[0];fileName.textContent=f?.name||'No PDF selected';if(f)setReportMonthFromPdf(f)};
 function setStatus(t,c=''){const s=document.getElementById('status');s.textContent=t;s.className='status '+c}
 function norm(s){return s.replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim()}
 async function getPdfJs(){
- if(window.pdfjsLib)return window.pdfjsLib;
- await new Promise((resolve,reject)=>{const sc=document.createElement('script');sc.type='module';sc.textContent="import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs'; window.pdfjsLib=pdfjsLib; window.dispatchEvent(new Event('pdfjsready'));";document.head.appendChild(sc);window.addEventListener('pdfjsready',resolve,{once:true});setTimeout(()=>reject(new Error('PDF.js failed to load. Check internet connection.')),15000)});
+ if(window.pdfjsLib){
+   if(window.pdfjsLib.GlobalWorkerOptions) window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+   return window.pdfjsLib;
+ }
+ await new Promise((resolve,reject)=>{
+   const sc=document.createElement('script');
+   sc.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+   sc.async=true;
+   sc.onload=()=>{
+     if(!window.pdfjsLib){reject(new Error('PDF.js loaded but pdfjsLib was not created.'));return}
+     window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+     resolve();
+   };
+   sc.onerror=()=>reject(new Error('PDF.js failed to load. Check internet connection.'));
+   document.head.appendChild(sc);
+ });
  return window.pdfjsLib;
 }
 async function extractLines(file){
