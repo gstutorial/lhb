@@ -74,8 +74,8 @@ label{display:block;font-size:12px;font-weight:700;color:#4d5d6b;margin-bottom:5
 
 <script>
 const DEFAULT_MAPPING = [
-['1267411','PRIMARY (OUTER)','1276411','GREEN','F 03','I,II,III AC/PANTRY CAR'],
-['1267412','PRIMARY (INNER)','1276412','GREEN','F 02','I,II,III AC/PANTRY CAR'],
+['1267411','PRIMARY (OUTER)','1267411','GREEN','F 03','I,II,III AC/PANTRY CAR'],
+['1267412','PRIMARY (INNER)','1267412','GREEN','F 02','I,II,III AC/PANTRY CAR'],
 ['LGO1100','PRIMARY (OUTER)','LGO1100','BLACK','F 07','LGS, LSCN, LSLR'],
 ['LGO1101','PRIMARY (INNER)','LGO1101','BLACK','F 06','LGS, LSCN, LSLR'],
 ['1277142','PRIMARY (OUTER)','1277142','YELLOW','F 05','POWER CAR'],
@@ -91,10 +91,13 @@ const DEFAULT_MAPPING = [
 ];
 const mappingEl=document.getElementById('mapping');
 function mappingText(){return DEFAULT_MAPPING.map(r=>r.join(' | ')).join('\n')}
+const MAP_VERSION='2026-10-07-v3';
+const savedMapVersion=localStorage.getItem('lhbSpringMappingVersion');
+if(savedMapVersion!==MAP_VERSION){ localStorage.setItem('lhbSpringMapping',mappingText()); localStorage.setItem('lhbSpringMappingVersion',MAP_VERSION); }
 mappingEl.value=localStorage.getItem('lhbSpringMapping')||mappingText();
 function parseMapping(){const m=new Map();mappingEl.value.split(/\r?\n/).forEach(line=>{if(!line.trim())return;const p=line.split('|').map(x=>x.trim());if(p.length>=6)m.set(p[0].toUpperCase(),{code:p[0],type:p[1],drg:p[2],colour:p[3],springCode:p[4],coach:p.slice(5).join(' | ')});});return m}
-document.getElementById('saveMap').onclick=()=>{localStorage.setItem('lhbSpringMapping',mappingEl.value);setStatus('Spring mapping saved.','ok')};
-document.getElementById('resetMap').onclick=()=>{mappingEl.value=mappingText();localStorage.setItem('lhbSpringMapping',mappingEl.value);setStatus('Default mapping restored.','ok')};
+document.getElementById('saveMap').onclick=()=>{localStorage.setItem('lhbSpringMapping',mappingEl.value);localStorage.setItem('lhbSpringMappingVersion',MAP_VERSION);setStatus('Spring mapping saved.','ok')};
+document.getElementById('resetMap').onclick=()=>{mappingEl.value=mappingText();localStorage.setItem('lhbSpringMapping',mappingEl.value);localStorage.setItem('lhbSpringMappingVersion',MAP_VERSION);setStatus('Default mapping restored.','ok')};
 const drop=document.getElementById('drop'), fileInput=document.getElementById('pdfFile'), fileName=document.getElementById('fileName');
 drop.onclick=()=>fileInput.click();
 ['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('drag')}));
@@ -157,20 +160,35 @@ async function extractLines(file){
  return {lines,pages:pdf.numPages};
 }
 const knownCodes=DEFAULT_MAPPING.map(x=>x[0]);
-function detectMonth(text){const m=text.match(/From:\s*(\d{2})-(\d{2})-(\d{4})\s*:\s*To:\s*(\d{2})-(\d{2})-(\d{4})/i);if(!m)return '';const names=['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];return names[+m[2]-1]+' '+m[3]}
+const MONTHS=['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+function detectMonth(text){
+ const t=text.replace(/\s+/g,' ');
+ let m=t.match(/From\s*:\s*(\d{1,2})-(\d{1,2})-(\d{4})\s*:?\s*To\s*:\s*(\d{1,2})-(\d{1,2})-(\d{4})/i);
+ if(!m)m=t.match(/From\s*:?\s*(\d{1,2})-(\d{1,2})-(\d{4}).{0,80}?To\s*:?\s*(\d{1,2})-(\d{1,2})-(\d{4})/i);
+ if(!m)return '';
+ const month=Number(m[2]); return MONTHS[month-1]+' '+m[3];
+}
 function parseRecords(lines){
+ // Robust parser for the machine-generated LHB spring test PDF.
+ // A record starts with a 5-digit Sr. No. followed by one of the known spring
+ // codes and ends at the first PASS/FAIL before the next record.
  const codeAlt=knownCodes.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|');
- const re=new RegExp('(?:^|\\s)('+codeAlt+')(?:\\s|$)','i'); const records=[]; const seen=new Set();
- for(let i=0;i<lines.length;i++){
-   const line=lines[i]; const cm=line.match(re); if(!cm)continue;
-   let status=null; let source=line;
-   const st=line.match(/\b(PASS|FAIL)\b/i); if(st)status=st[1].toUpperCase();
-   // In some PDFs the row may be split; search only the next few lines until another spring code appears.
-   if(!status){for(let j=i+1;j<Math.min(lines.length,i+4);j++){if(re.test(lines[j]))break;const sm=lines[j].match(/\b(PASS|FAIL)\b/i);if(sm){status=sm[1].toUpperCase();source+=' '+lines[j];break}}}
-   if(!status)continue;
-   const code=cm[1].toUpperCase();
-   const key=code+'|'+status+'|'+i;
-   if(!seen.has(key)){records.push({code,status});seen.add(key)}
+ const startRe=new RegExp('(?:^|\\n)\\s*\\d{5}\\s+('+codeAlt+')\\b','ig');
+ const full=lines.join('\n').replace(/\r/g,'');
+ const starts=[]; let m;
+ while((m=startRe.exec(full))!==null) starts.push({index:m.index+(m[0].startsWith('\n')?1:0),code:m[1].toUpperCase(),end:m.index+m[0].length});
+ const records=[];
+ for(let i=0;i<starts.length;i++){
+   const a=starts[i], b=starts[i+1]?.index ?? full.length;
+   const chunk=full.slice(a.end,b);
+   const sm=chunk.match(/\b(PASS|FAIL)\b/i);
+   if(sm) records.push({code:a.code,status:sm[1].toUpperCase()});
+ }
+ // Fallback for viewers that don't preserve newlines around table rows.
+ if(records.length===0){
+   const flat=full.replace(/\\s+/g,' ');
+   const re=new RegExp('\\b\\d{5}\\s+('+codeAlt+')\\b([\\s\\S]*?)(?=\\b\\d{5}\\s+(?:'+codeAlt+')\\b|$)','ig');
+   while((m=re.exec(flat))!==null){const sm=m[2].match(/\\b(PASS|FAIL)\\b/i);if(sm)records.push({code:m[1].toUpperCase(),status:sm[1].toUpperCase()});}
  }
  return records;
 }
